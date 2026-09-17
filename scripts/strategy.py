@@ -50,7 +50,7 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     data = build_dataset()
     train, test = split_train_test(data)
-    _, _, dates = prepare_training_data(train)
+    Xtr, ytr, dates= prepare_training_data(train)
     folds = make_date_folds(dates)
     pipe = joblib.load(os.path.join(MODEL_DIR, "selected_model.pkl"))
 
@@ -58,7 +58,6 @@ if __name__ == "__main__":
         os.path.join(MODEL_DIR, "ml_signal.csv"), parse_dates=["date"]
     ).set_index(["date", "ticker"])["ml_signal"]
 
-    Xtr, ytr, _ = prepare_training_data(train)
     Xte = test.dropna(subset=["fwd_return"])[FEATURES]
     test_sig = pd.Series(
         clone(pipe).fit(Xtr, ytr).predict_proba(Xte)[:, 1],
@@ -86,7 +85,7 @@ if __name__ == "__main__":
 
     # same y-scale for strategy & SP500
     both = pd.DataFrame({"Strategy PnL": cum, "SP500 PnL": sp})
-    ax = both.plot(figsize=(11, 5), title="Strategy vs SP500", color=["steelblue", "gray"])
+    ax = both.plot(figsize=(11, 5), title="Strategy vs SP500", color=["steelblue", "red"])
     ax.axvline(TEST_DATE, color="red", ls="--", label="Train / Test")
     ax.set(xlabel="Date", ylabel="Cumulative PnL")
     ax.legend(loc="upper left")
