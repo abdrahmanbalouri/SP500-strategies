@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     Xte = test.dropna(subset=["fwd_return"])[FEATURES]
     test_sig = pd.Series(
-        clone(pipe).fit(Xtr, ytr).predict_proba(Xte)[:, 1],
+        pipe.fit(Xtr, ytr).predict_proba(Xte)[:, 1],
         index=Xte.index,
         name="ml_signal",
     )

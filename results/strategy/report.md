@@ -11,7 +11,7 @@ Target on day D: `sign(return(D+1, D+2))`.
 Expanding Time Series Split, 10 folds (`TimeSeriesSplit` date-level + `GridSearchCV`).
 
 Fold lengths:
-- fold  : train 510 days (2013-02-08 → 2015-02-18), validation 47 days (2015-02-19 → 2015-04-27)
+- fold 1: train 510 days (2013-02-08 → 2015-02-18), validation 47 days (2015-02-19 → 2015-04-27)
 - fold 2: train 557 days (2013-02-08 → 2015-04-27), validation 47 days (2015-04-28 → 2015-07-02)
 - fold 3: train 604 days (2013-02-08 → 2015-07-02), validation 47 days (2015-07-06 → 2015-09-09)
 - fold 4: train 651 days (2013-02-08 → 2015-09-09), validation 47 days (2015-09-10 → 2015-11-13)
@@ -32,5 +32,5 @@ Drawdown: **`empyrical.max_drawdown`**.
 
 | set | PnL | Max drawdown |
 |-----|-----|--------------|
-| train | 0.1046 | -0.1681 |
-| test | 0.1376 | -0.0755 |
+| train | 0.1060 | -0.1675 |
+| test | 0.1397 | -0.0756 |
