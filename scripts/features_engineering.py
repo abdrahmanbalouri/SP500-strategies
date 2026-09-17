@@ -1,4 +1,3 @@
-"""Build features with the `ta` library + target, no leakage."""
 import os
 
 import numpy as np
@@ -25,9 +24,7 @@ def _per_ticker(g: pd.DataFrame) -> pd.DataFrame:
     g["fwd_return"] = c.shift(-2) / c.shift(-1) - 1
     g["target"] = np.sign(g["fwd_return"])
 
-    # A pre-2017 row must not use a label calculated from test-period prices.
-    # Keep these rows in the dataset, but make their labels unavailable so any
-    # training code that drops missing targets cannot learn from the test set.
+
     target_end_date = g["date"].shift(-2)
     crosses_test_boundary = (g["date"] < TEST_DATE) & (target_end_date >= TEST_DATE)
     g.loc[crosses_test_boundary, ["fwd_return", "target"]] = np.nan
