@@ -1,5 +1,3 @@
-"""Select a model with leakage-free, date-based cross-validation."""
-
 from pathlib import Path
 
 import joblib

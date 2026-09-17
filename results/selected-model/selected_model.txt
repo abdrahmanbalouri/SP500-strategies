@@ -1,0 +1,23 @@
+Selected model methodology
+==========================
+
+Cross-validation: expanding time-series split by date
+Number of folds: 10
+First training fold: 2013-02-08 to 2015-02-18
+Last validation fold: 2016-10-21 to 2016-12-28
+Test data from 2017 onward was not used for model selection.
+
+Pipeline:
+1. Median imputation
+2. Standard scaling
+3. No dimension reduction
+4. Logistic regression
+
+Parameter grid: {'model__C': [0.1, 1.0, 10.0]}
+Best parameters: {'model__C': 0.1}
+Best mean validation AUC: 0.518170
+
+Selected pipeline: Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
+                ('scaler', StandardScaler()),
+                ('model',
+                 LogisticRegression(C=0.1, max_iter=1000, random_state=42))])
