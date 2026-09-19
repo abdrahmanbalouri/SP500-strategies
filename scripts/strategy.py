@@ -1,4 +1,4 @@
-"""Long-only strategy: sklearn signal × returns; empyrical for drawdown."""
+"""Long-only strategy: sklearn signal multiplied by forward returns."""
 import os
 import sys
 
@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from empyrical import max_drawdown
 from sklearn.base import clone
 
 sys.path.insert(0, os.path.dirname(__file__))
@@ -26,14 +25,24 @@ def to_weights(signal):
     return (long / long.groupby(level="date").transform("sum").replace(0, np.nan)).rename("weight")
 
 
-def sp500_cum(dates):
+def sp500_forward_returns(dates):
     close = (
-        pd.read_csv(os.path.join(ROOT, "data", "HistoricalPrices.csv"), parse_dates=["Date"])
+        pd.read_csv(
+            os.path.join(ROOT, "data", "HistoricalData.csv"),
+            parse_dates=["Date"],
+            date_format="%m/%d/%y",
+        )
         .rename(columns=lambda c: c.strip())
         .set_index("Date")
         .sort_index()["Close"]
     )
-    return (1 + close.pct_change().reindex(dates).fillna(0)).cumprod() - 1
+    forward_return = close.shift(-2) / close.shift(-1) - 1
+    return forward_return.reindex(dates).fillna(0)
+
+
+def max_pnl_drawdown(daily_pnl):
+    cumulative_pnl = daily_pnl.cumsum()
+    return float((cumulative_pnl - cumulative_pnl.cummax()).min())
 
 
 def fold_lengths(folds):
@@ -70,20 +79,33 @@ if __name__ == "__main__":
     aligned = data[["fwd_return"]].join(strategy, how="inner").dropna()
     pnl = (aligned["weight"] * aligned["fwd_return"]).groupby(level="date").sum().sort_index()
     cum = pnl.cumsum()
-    sp = sp500_cum(pnl.index)
+    benchmark_pnl = sp500_forward_returns(pnl.index)
+    sp = benchmark_pnl.cumsum()
 
     def metrics(mask):
         if not mask.any():
-            return {"PnL": 0.0, "MaxDrawdown": 0.0}
+            return {
+                "PnL": 0.0,
+                "SP500PnL": 0.0,
+                "ExcessPnL": 0.0,
+                "MaxDrawdown": 0.0,
+            }
         r = pnl[mask]
-        return {"PnL": float(r.sum()), "MaxDrawdown": float(max_drawdown(r))}
+        benchmark = benchmark_pnl[mask]
+        strategy_total = float(r.sum())
+        benchmark_total = float(benchmark.sum())
+        return {
+            "PnL": strategy_total,
+            "SP500PnL": benchmark_total,
+            "ExcessPnL": strategy_total - benchmark_total,
+            "MaxDrawdown": max_pnl_drawdown(r),
+        }
 
     results = pd.DataFrame(
         {"train": metrics(cum.index < TEST_DATE), "test": metrics(cum.index >= TEST_DATE)}
     ).T
     results.to_csv(os.path.join(OUT, "results.csv"))
 
-    # same y-scale for strategy & SP500
     both = pd.DataFrame({"Strategy PnL": cum, "SP500 PnL": sp})
     ax = both.plot(figsize=(11, 5), title="Strategy vs SP500", color=["steelblue", "red"])
     ax.axvline(TEST_DATE, color="red", ls="--", label="Train / Test")
@@ -96,30 +118,40 @@ if __name__ == "__main__":
     report = f"""# Strategy report
 
 ## Features
-Bollinger, RSI(14), MACD — **`ta`**.
+Bollinger %B, RSI(14), and MACD, computed independently for each ticker from
+prices available through day D.
 Target on day D: `sign(return(D+1, D+2))`.
 
 ## Pipeline (sklearn)
-- Imputer / Scaler / LogisticRegression via `make_pipeline` + `GridSearchCV`
+- Median imputation
+- Standard scaling
+- No dimension reduction
+- Logistic regression selected with `GridSearchCV`
 
 ## Cross-validation
-Expanding Time Series Split, 10 folds (`TimeSeriesSplit` date-level + `GridSearchCV`).
+Expanding Time Series Split, 10 date-level folds with a two-trading-date purged
+gap matching the target horizon (`TimeSeriesSplit` + `GridSearchCV`).
 
 Fold lengths:
 {fold_lengths(folds)}
 
 ## Strategy
-Long-only (`ml_signal > 0.5`), $1/day. PnL = weight × fwd_return.
-Drawdown: **`empyrical.max_drawdown`**.
+Long-only (`ml_signal > 0.5`). On each date, $1 is divided equally among all
+selected stocks; if none is selected, $0 is invested. PnL = weight × the
+D+1→D+2 forward return. The S&P 500 benchmark uses the same forward-return
+timing and additive $1-per-day PnL convention.
 
 ![PnL](strategy.png)
 
 ## Metrics
 
-| set | PnL | Max drawdown |
-|-----|-----|--------------|
-| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'MaxDrawdown']:.4f} |
-| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'MaxDrawdown']:.4f} |
+| set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
+|-----|--------------|-------------|------------|-----------------------|
+| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} | {results.loc['train', 'ExcessPnL']:.4f} | {results.loc['train', 'MaxDrawdown']:.4f} |
+| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} | {results.loc['test', 'ExcessPnL']:.4f} | {results.loc['test', 'MaxDrawdown']:.4f} |
+
+On the test set the strategy {"beats" if results.loc['test', 'ExcessPnL'] > 0 else "does not beat"}
+the S&P 500 under this common PnL convention.
 """
     open(os.path.join(OUT, "report.md"), "w").write(report)
     print(results)

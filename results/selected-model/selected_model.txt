@@ -2,8 +2,9 @@ Selected model methodology
 ==========================
 
 Cross-validation: expanding time-series split by date
+Purged gap: 2 trading dates (target horizon)
 Number of folds: 10
-First training fold: 2013-02-08 to 2015-02-18
+First training fold: 2013-02-08 to 2015-02-13
 Last validation fold: 2016-10-21 to 2016-12-28
 Test data from 2017 onward was not used for model selection.
 
@@ -15,7 +16,7 @@ Pipeline:
 
 Parameter grid: {'model__C': [0.1, 1.0, 10.0]}
 Best parameters: {'model__C': 0.1}
-Best mean validation AUC: 0.518917
+Best mean validation AUC: 0.519097
 
 Selected pipeline: Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
                 ('scaler', StandardScaler()),

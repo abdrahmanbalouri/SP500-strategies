@@ -6,8 +6,7 @@ to try to outperform the S&P 500.
 ## Data
 
 - `data/all_stocks_5yr.csv` - OHLCV of the S&P 500 constituents.
-- `data/HistoricalPrices.csv` - OHLC of the S&P 500 index (benchmark).
-- `data/preprocessed.pkl` - generated cache created by `features_engineering.py`.
+- `data/HistoricalData.csv` - OHLC of the S&P 500 index (benchmark).
 
 Open [data-engineering.html](data-engineering.html) in a browser for the complete
 transformation, feature, target, and leakage-control documentation.
@@ -15,10 +14,14 @@ transformation, feature, target, and leakage-control documentation.
 ## Pipeline
 
 1. `features_engineering.py` - builds the leakage-free dataset (features + target).
-2. `gridsearch.py` - cross-validation, grid search, ML metrics and feature importance.
+2. `gridsearch.py` - purged time-series cross-validation and grid search.
 3. `model_selection.py` - computes train/validation ML metrics and feature importance on the selected pipeline.
 4. `create_signal.py` - generates the machine-learning signal.
 5. `strategy.py` - backtests the signal and writes the report.
+
+The target dated D is the return from D+1 to D+2. Cross-validation therefore
+purges two trading dates between every training and validation fold. The test
+set starts on 2017-01-01 and is not used for model selection.
 
 ## Run
 

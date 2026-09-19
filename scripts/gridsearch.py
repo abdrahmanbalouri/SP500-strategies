@@ -21,6 +21,7 @@ CV_DIR = ROOT / "results" / "cross-validation"
 MODEL_DIR = ROOT / "results" / "selected-model"
 
 N_SPLITS = 10
+TARGET_HORIZON = 2
 
 
 def make_date_folds(dates, n_splits=N_SPLITS):
@@ -30,7 +31,11 @@ def make_date_folds(dates, n_splits=N_SPLITS):
     minimum_train_size = after_two_years[0] + 1
     remaining_dates = len(unique_dates) - minimum_train_size
     test_size = remaining_dates // n_splits
-    splitter = TimeSeriesSplit(n_splits=n_splits, test_size=test_size)
+    splitter = TimeSeriesSplit(
+        n_splits=n_splits,
+        test_size=test_size,
+        gap=TARGET_HORIZON,
+    )
     return [
         (unique_dates[train_indices], unique_dates[validation_indices])
         for train_indices, validation_indices in splitter.split(unique_dates)
@@ -109,6 +114,7 @@ def save_model_description(search, folds, output_path):
         "==========================",
         "",
         "Cross-validation: expanding time-series split by date",
+        f"Purged gap: {TARGET_HORIZON} trading dates (target horizon)",
         f"Number of folds: {len(folds)}",
         f"First training fold: {first_train[0].date()} to {first_train[-1].date()}",
         f"Last validation fold: {last_validation[0].date()} to {last_validation[-1].date()}",
@@ -143,7 +149,7 @@ def main():
         param_grid={"model__C": [0.1, 1.0, 10.0]},
         scoring="roc_auc",
         cv=index_folds,
-        n_jobs=-1,
+        n_jobs=1,
         refit=True,
     )
     search.fit(X, y)

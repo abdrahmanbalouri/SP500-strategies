@@ -91,12 +91,7 @@ def main():
         label="Random baseline",
     )
     ax.set_ylim(0.48, 0.56)
-    handles, _ = ax.get_legend_handles_labels()
-    ax.legend(
-        [handles[1], handles[0]],
-        ["Validation set", "Train set"],
-        frameon=False,
-    )
+    ax.legend(frameon=False)
     ax.grid(axis="y", alpha=0.2)
     ax.figure.tight_layout()
     ax.figure.savefig(CV_DIR / "metric_train.png", dpi=150)
