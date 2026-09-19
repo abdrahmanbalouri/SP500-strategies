@@ -62,7 +62,7 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     data = build_dataset()
     train, test = split_train_test(data)
-    Xtr, ytr, dates = prepare_training_data(train)
+    dates = prepare_training_data(train)[2]
     folds = make_date_folds(dates)
     pipe = joblib.load(os.path.join(MODEL_DIR, "selected_model.pkl"))
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     Xte = test.dropna(subset=["fwd_return"])[FEATURES]
     test_sig = pd.Series(
-        pipe.fit(Xtr, ytr).predict_proba(Xte)[:, 1],
+        pipe.predict_proba(Xte)[:, 1],
         index=Xte.index,
         name="ml_signal",
     )
