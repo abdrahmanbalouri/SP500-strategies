@@ -8,9 +8,6 @@ predetermined cross-sectional momentum screen to try to outperform the S&P 500.
 - `data/all_stocks_5yr.csv` - OHLCV of the S&P 500 constituents.
 - `data/HistoricalData.csv` - OHLC of the S&P 500 index (benchmark).
 
-Open [data-engineering.html](data-engineering.html) in a browser for the complete
-transformation, feature, target, and leakage-control documentation.
-
 ## Pipeline
 
 1. `features_engineering.py` - builds the leakage-free dataset (features + target).
