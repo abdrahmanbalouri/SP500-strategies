@@ -16,7 +16,7 @@ Pipeline:
 
 Parameter grid: {'model__C': [0.1, 1.0, 10.0]}
 Best parameters: {'model__C': 0.1}
-Best mean validation AUC: 0.519097
+Best mean validation AUC: 0.519037
 
 Selected pipeline: Pipeline(steps=[('imputer', SimpleImputer(strategy='median')),
                 ('scaler', StandardScaler()),

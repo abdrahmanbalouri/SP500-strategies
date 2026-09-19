@@ -1,8 +1,8 @@
 # Strategy report
 
 ## Features
-Bollinger %B, RSI(14), and MACD, computed independently for each ticker from
-prices available through day D.
+Bollinger %B, RSI(14), MACD, and 60-day momentum, computed independently for
+each ticker from prices available through day D.
 Target on day D: `sign(return(D+1, D+2))`.
 
 ## Pipeline (sklearn)
@@ -28,10 +28,12 @@ Fold lengths:
 - fold 10: train 931 days (2013-02-08 → 2016-10-18), validation 47 days (2016-10-21 → 2016-12-28)
 
 ## Strategy
-Long-only (`ml_signal > 0.5`). On each date, $1 is divided equally among all
-selected stocks; if none is selected, $0 is invested. PnL = weight × the
-D+1→D+2 forward return. The S&P 500 benchmark uses the same forward-return
-timing and additive $1-per-day PnL convention.
+Long-only: require `ml_signal > 0.5`, then retain stocks in the top 10% of
+60-day momentum on that date. This momentum screen was selected using only
+pre-2017 validation results. On each date, $1 is divided equally among selected
+stocks; if none is selected, $0 is invested. PnL = weight × the D+1→D+2
+forward return. The S&P 500 benchmark uses the same timing and additive
+$1-per-day PnL convention.
 
 ![PnL](strategy.png)
 
@@ -39,5 +41,11 @@ timing and additive $1-per-day PnL convention.
 
 | set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
 |-----|--------------|-------------|------------|-----------------------|
+| train | 0.1631 | 0.0782 |
+| test | 0.1888 | 0.1702 |
 
-the S&P 500 under this common PnL convention.
+## Trust assessment
+This result is encouraging but is not sufficient to trust the strategy with
+real capital. The test set is short, the constituent dataset can contain
+survivorship bias, and the backtest omits transaction costs and slippage. A
+longer point-in-time universe and a cost-aware walk-forward test are required.

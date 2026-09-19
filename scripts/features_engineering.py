@@ -16,6 +16,7 @@ FEATURES = [
     "bb_pct",
     "rsi",
     "macd",
+    "momentum_60d",
 ]
 
 
@@ -23,11 +24,9 @@ def _per_ticker(g: pd.DataFrame) -> pd.DataFrame:
     g = g.sort_values("date").copy()
     c = g["close"]
 
-    # Target
     g["fwd_return"] = c.shift(-2) / c.shift(-1) - 1
     g["target"] = np.sign(g["fwd_return"])
 
-    # Prevent data leakage
     target_end_date = g["date"].shift(-2)
     crosses_test_boundary = (
         (g["date"] < TEST_DATE)
@@ -39,15 +38,10 @@ def _per_ticker(g: pd.DataFrame) -> pd.DataFrame:
         ["fwd_return", "target"]
     ] = np.nan
 
-    # Features
-    bb = BollingerBands(close=c)
-    g["bb_pct"] = bb.bollinger_pband()
-
-    rsi = RSIIndicator(close=c)
-    g["rsi"] = rsi.rsi()
-
-    m = MACD(close=c)
-    g["macd"] = m.macd()
+    g["bb_pct"] = BollingerBands(close=c).bollinger_pband()
+    g["rsi"] = RSIIndicator(close=c).rsi()
+    g["macd"] = MACD(close=c).macd()
+    g["momentum_60d"] = c.pct_change(60, fill_method=None)
 
     return g
 
@@ -60,7 +54,7 @@ def build_dataset() -> pd.DataFrame:
 
     raw = raw.sort_values(["Name", "date"])
 
-    out = (
+    return (
         pd.concat(
             [_per_ticker(g) for _, g in raw.groupby("Name", sort=False)],
             ignore_index=True
@@ -71,16 +65,10 @@ def build_dataset() -> pd.DataFrame:
         .sort_index()
     )
 
-    return out
-
 
 def split_train_test(df: pd.DataFrame):
     d = df.index.get_level_values("date")
-
-    train = df.loc[d < TEST_DATE]
-    test = df.loc[d >= TEST_DATE]
-
-    return train, test
+    return df.loc[d < TEST_DATE], df.loc[d >= TEST_DATE]
 
 
 if __name__ == "__main__":

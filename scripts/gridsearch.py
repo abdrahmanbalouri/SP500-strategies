@@ -102,7 +102,7 @@ def plot_folds(folds, output_path):
     ax.legend()
     fig.tight_layout()
     fig.savefig(output_path, dpi=150)
-    # plt.close(fig)
+    plt.close(fig)
 
 
 def save_model_description(search, folds, output_path):
@@ -149,8 +149,6 @@ def main():
         param_grid={"model__C": [0.1, 1.0, 10.0]},
         scoring="roc_auc",
         cv=index_folds,
-        n_jobs=1,
-        refit=True,
     )
     search.fit(X, y)
 

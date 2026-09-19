@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.base import clone
 
 sys.path.insert(0, os.path.dirname(__file__))
 from features_engineering import FEATURES, TEST_DATE, build_dataset, split_train_test
@@ -18,10 +17,20 @@ from gridsearch import make_date_folds, prepare_training_data
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "results", "strategy")
 MODEL_DIR = os.path.join(ROOT, "results", "selected-model")
+MOMENTUM_QUANTILE = 0.90
 
 
-def to_weights(signal):
-    long = (signal > 0.5).astype(float)
+def to_weights(signal, momentum):
+    selected_data = pd.concat(
+        [signal.rename("signal"), momentum.rename("momentum")], axis=1
+    ).dropna()
+    cutoff = selected_data["momentum"].groupby(level="date").transform(
+        lambda values: values.quantile(MOMENTUM_QUANTILE)
+    )
+    long = (
+        (selected_data["signal"] > 0.5)
+        & (selected_data["momentum"] >= cutoff)
+    ).astype(float)
     return (long / long.groupby(level="date").transform("sum").replace(0, np.nan)).rename("weight")
 
 
@@ -39,9 +48,6 @@ def sp500_forward_returns(dates):
     forward_return = close.shift(-2) / close.shift(-1) - 1
     return forward_return.reindex(dates).fillna(0)
 
-
-
-
 def fold_lengths(folds):
     return "\n".join(
         f"- fold {i}: train {len(tr)} days "
@@ -56,7 +62,7 @@ if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     data = build_dataset()
     train, test = split_train_test(data)
-    Xtr, ytr, dates= prepare_training_data(train)
+    Xtr, ytr, dates = prepare_training_data(train)
     folds = make_date_folds(dates)
     pipe = joblib.load(os.path.join(MODEL_DIR, "selected_model.pkl"))
 
@@ -72,27 +78,20 @@ if __name__ == "__main__":
     )
     signal = pd.concat([oof, test_sig]).sort_index()
 
-    strategy = to_weights(signal)
+    strategy = to_weights(signal, data["momentum_60d"])
     aligned = data[["fwd_return"]].join(strategy, how="inner").dropna()
     pnl = (aligned["weight"] * aligned["fwd_return"]).groupby(level="date").sum().sort_index()
     cum = pnl.cumsum()
     benchmark_pnl = sp500_forward_returns(pnl.index)
-    sp = benchmark_pnl.cumsum()
 
     def metrics(mask):
-        if not mask.any():
-            return {
-                "PnL": 0.0,
-                "SP500PnL": 0.0,
-               
-            }
         r = pnl[mask]
         benchmark = benchmark_pnl[mask]
         strategy_total = float(r.sum())
         benchmark_total = float(benchmark.sum())
         return {
             "PnL": strategy_total,
-            "SP500PnL": benchmark_total
+            "SP500PnL": benchmark_total,
         }
 
     results = pd.DataFrame(
@@ -100,7 +99,9 @@ if __name__ == "__main__":
     ).T
     results.to_csv(os.path.join(OUT, "results.csv"))
 
-    both = pd.DataFrame({"Strategy PnL": cum, "SP500 PnL": sp})
+    both = pd.DataFrame(
+        {"Strategy PnL": cum, "SP500 PnL": benchmark_pnl.cumsum()}
+    )
     ax = both.plot(figsize=(11, 5), title="Strategy vs SP500", color=["steelblue", "red"])
     ax.axvline(TEST_DATE, color="red", ls="--", label="Train / Test")
     ax.set(xlabel="Date", ylabel="Cumulative PnL")
@@ -112,8 +113,8 @@ if __name__ == "__main__":
     report = f"""# Strategy report
 
 ## Features
-Bollinger %B, RSI(14), and MACD, computed independently for each ticker from
-prices available through day D.
+Bollinger %B, RSI(14), MACD, and 60-day momentum, computed independently for
+each ticker from prices available through day D.
 Target on day D: `sign(return(D+1, D+2))`.
 
 ## Pipeline (sklearn)
@@ -130,10 +131,12 @@ Fold lengths:
 {fold_lengths(folds)}
 
 ## Strategy
-Long-only (`ml_signal > 0.5`). On each date, $1 is divided equally among all
-selected stocks; if none is selected, $0 is invested. PnL = weight × the
-D+1→D+2 forward return. The S&P 500 benchmark uses the same forward-return
-timing and additive $1-per-day PnL convention.
+Long-only: require `ml_signal > 0.5`, then retain stocks in the top 10% of
+60-day momentum on that date. This momentum screen was selected using only
+pre-2017 validation results. On each date, $1 is divided equally among selected
+stocks; if none is selected, $0 is invested. PnL = weight × the D+1→D+2
+forward return. The S&P 500 benchmark uses the same timing and additive
+$1-per-day PnL convention.
 
 ![PnL](strategy.png)
 
@@ -141,9 +144,16 @@ timing and additive $1-per-day PnL convention.
 
 | set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
 |-----|--------------|-------------|------------|-----------------------|
+| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} |
+| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} |
 
-the S&P 500 under this common PnL convention.
+## Trust assessment
+This result is encouraging but is not sufficient to trust the strategy with
+real capital. The test set is short, the constituent dataset can contain
+survivorship bias, and the backtest omits transaction costs and slippage. A
+longer point-in-time universe and a cost-aware walk-forward test are required.
 """
-    open(os.path.join(OUT, "report.md"), "w").write(report)
+    with open(os.path.join(OUT, "report.md"), "w", encoding="utf-8") as output:
+        output.write(report)
     print(results)
     print("saved strategy.png, results.csv, report.md")
