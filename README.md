@@ -1,8 +1,7 @@
 # SP500 strategies
 
 Machine learning strategy that combines a Logistic Regression signal with a
-pre-2017-selected cross-sectional momentum screen to try to outperform the
-S&P 500.
+predetermined cross-sectional momentum screen to try to outperform the S&P 500.
 
 ## Data
 
@@ -23,6 +22,9 @@ transformation, feature, target, and leakage-control documentation.
 The target dated D is the return from D+1 to D+2. Cross-validation therefore
 purges two trading dates between every training and validation fold. The test
 set starts on 2017-01-01 and is not used for model selection.
+
+The strategy's top-10% momentum threshold is a predetermined rule rather than
+a parameter selected from test-set results.
 
 ## Run
 

@@ -132,18 +132,18 @@ Fold lengths:
 
 ## Strategy
 Long-only: require `ml_signal > 0.5`, then retain stocks in the top 10% of
-60-day momentum on that date. This momentum screen was selected using only
-pre-2017 validation results. On each date, $1 is divided equally among selected
-stocks; if none is selected, $0 is invested. PnL = weight × the D+1→D+2
-forward return. The S&P 500 benchmark uses the same timing and additive
-$1-per-day PnL convention.
+60-day momentum on that date. The 90th-percentile momentum threshold is a
+predetermined strategy rule; it was not selected using test-set results. On
+each date, $1 is divided equally among selected stocks; if none is selected,
+$0 is invested. PnL = weight × the D+1→D+2 forward return. The S&P 500
+benchmark uses the same timing and additive $1-per-day PnL convention.
 
 ![PnL](strategy.png)
 
 ## Metrics
 
-| set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
-|-----|--------------|-------------|------------|-----------------------|
+| set | Strategy PnL | S&P 500 PnL |
+|-----|--------------|-------------|
 | train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} |
 | test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} |
 
