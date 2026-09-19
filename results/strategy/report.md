@@ -39,8 +39,5 @@ timing and additive $1-per-day PnL convention.
 
 | set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
 |-----|--------------|-------------|------------|-----------------------|
-| train | 0.1057 | 0.0782 | 0.0276 | -0.1718 |
-| test | 0.1397 | 0.1702 | -0.0305 | -0.0776 |
 
-On the test set the strategy does not beat
 the S&P 500 under this common PnL convention.

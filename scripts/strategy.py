@@ -40,9 +40,6 @@ def sp500_forward_returns(dates):
     return forward_return.reindex(dates).fillna(0)
 
 
-def max_pnl_drawdown(daily_pnl):
-    cumulative_pnl = daily_pnl.cumsum()
-    return float((cumulative_pnl - cumulative_pnl.cummax()).min())
 
 
 def fold_lengths(folds):
@@ -87,8 +84,7 @@ if __name__ == "__main__":
             return {
                 "PnL": 0.0,
                 "SP500PnL": 0.0,
-                "ExcessPnL": 0.0,
-                "MaxDrawdown": 0.0,
+               
             }
         r = pnl[mask]
         benchmark = benchmark_pnl[mask]
@@ -96,9 +92,7 @@ if __name__ == "__main__":
         benchmark_total = float(benchmark.sum())
         return {
             "PnL": strategy_total,
-            "SP500PnL": benchmark_total,
-            "ExcessPnL": strategy_total - benchmark_total,
-            "MaxDrawdown": max_pnl_drawdown(r),
+            "SP500PnL": benchmark_total
         }
 
     results = pd.DataFrame(
@@ -147,10 +141,7 @@ timing and additive $1-per-day PnL convention.
 
 | set | Strategy PnL | S&P 500 PnL | Excess PnL | Strategy max drawdown |
 |-----|--------------|-------------|------------|-----------------------|
-| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} | {results.loc['train', 'ExcessPnL']:.4f} | {results.loc['train', 'MaxDrawdown']:.4f} |
-| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} | {results.loc['test', 'ExcessPnL']:.4f} | {results.loc['test', 'MaxDrawdown']:.4f} |
 
-On the test set the strategy {"beats" if results.loc['test', 'ExcessPnL'] > 0 else "does not beat"}
 the S&P 500 under this common PnL convention.
 """
     open(os.path.join(OUT, "report.md"), "w").write(report)
