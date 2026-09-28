@@ -39,10 +39,10 @@ benchmark uses the same timing and additive $1-per-day PnL convention.
 
 ## Metrics
 
-| set | Strategy PnL | S&P 500 PnL |
-|-----|--------------|-------------|
-| train | 0.1631 | 0.0782 |
-| test | 0.1888 | 0.1702 |
+| set | Strategy PnL | S&P 500 PnL | Maximum Drawdown |
+|-----|--------------|-------------|------------------|
+| train | 0.1631 | 0.0782 | 0.1937 |
+| test | 0.1888 | 0.1702 | 0.1026 |
 
 ## Trust assessment
 This result is encouraging but is not sufficient to trust the strategy with

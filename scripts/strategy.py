@@ -17,6 +17,7 @@ from gridsearch import make_date_folds, prepare_training_data
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "results", "strategy")
 MODEL_DIR = os.path.join(ROOT, "results", "selected-model")
+
 MOMENTUM_QUANTILE = 0.90
 
 
@@ -24,14 +25,20 @@ def to_weights(signal, momentum):
     selected_data = pd.concat(
         [signal.rename("signal"), momentum.rename("momentum")], axis=1
     ).dropna()
+
     cutoff = selected_data["momentum"].groupby(level="date").transform(
         lambda values: values.quantile(MOMENTUM_QUANTILE)
     )
+
     long = (
         (selected_data["signal"] > 0.5)
         & (selected_data["momentum"] >= cutoff)
     ).astype(float)
-    return (long / long.groupby(level="date").transform("sum").replace(0, np.nan)).rename("weight")
+
+    return (
+        long
+        / long.groupby(level="date").transform("sum").replace(0, np.nan)
+    ).rename("weight")
 
 
 def sp500_forward_returns(dates):
@@ -45,8 +52,15 @@ def sp500_forward_returns(dates):
         .set_index("Date")
         .sort_index()["Close"]
     )
+
     forward_return = close.shift(-2) / close.shift(-1) - 1
+
     return forward_return.reindex(dates).fillna(0)
+
+
+def max_drawdown(cum_r):
+    return float((cum_r.cummax() - cum_r).max())
+
 
 def fold_lengths(folds):
     return "\n".join(
@@ -60,55 +74,145 @@ def fold_lengths(folds):
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
+
     data = build_dataset()
+
     train, test = split_train_test(data)
+
     dates = prepare_training_data(train)[2]
+
     folds = make_date_folds(dates)
-    pipe = joblib.load(os.path.join(MODEL_DIR, "selected_model.pkl"))
+
+    pipe = joblib.load(
+        os.path.join(MODEL_DIR, "selected_model.pkl")
+    )
 
     oof = pd.read_csv(
-        os.path.join(MODEL_DIR, "ml_signal.csv"), parse_dates=["date"]
+        os.path.join(MODEL_DIR, "ml_signal.csv"),
+        parse_dates=["date"],
     ).set_index(["date", "ticker"])["ml_signal"]
 
     Xte = test.dropna(subset=["fwd_return"])[FEATURES]
+
     test_sig = pd.Series(
         pipe.predict_proba(Xte)[:, 1],
         index=Xte.index,
         name="ml_signal",
     )
+
     signal = pd.concat([oof, test_sig]).sort_index()
 
-    strategy = to_weights(signal, data["momentum_60d"])
-    aligned = data[["fwd_return"]].join(strategy, how="inner").dropna()
-    pnl = (aligned["weight"] * aligned["fwd_return"]).groupby(level="date").sum().sort_index()
+    strategy = to_weights(
+        signal,
+        data["momentum_60d"],
+    )
+
+    aligned = (
+        data[["fwd_return"]]
+        .join(strategy, how="inner")
+        .dropna()
+    )
+
+    pnl = (
+        aligned["weight"] * aligned["fwd_return"]
+    ).groupby(level="date").sum().sort_index()
+
     cum = pnl.cumsum()
+
     benchmark_pnl = sp500_forward_returns(pnl.index)
+    benchmark_cum = benchmark_pnl.cumsum()
+
+
+    # =========================
+    # Metrics
+    # =========================
 
     def metrics(mask):
         r = pnl[mask]
         benchmark = benchmark_pnl[mask]
+
         strategy_total = float(r.sum())
         benchmark_total = float(benchmark.sum())
+
+        strategy_cum = r.cumsum()
+
         return {
             "PnL": strategy_total,
             "SP500PnL": benchmark_total,
+            "MaxDrawdown": max_drawdown(strategy_cum),
         }
 
-    results = pd.DataFrame(
-        {"train": metrics(cum.index < TEST_DATE), "test": metrics(cum.index >= TEST_DATE)}
-    ).T
-    results.to_csv(os.path.join(OUT, "results.csv"))
 
-    both = pd.DataFrame(
-        {"Strategy PnL": cum, "SP500 PnL": benchmark_pnl.cumsum()}
+    results = pd.DataFrame(
+        {
+            "train": metrics(cum.index < TEST_DATE),
+            "test": metrics(cum.index >= TEST_DATE),
+        }
+    ).T
+
+    results.to_csv(
+        os.path.join(OUT, "results.csv")
     )
-    ax = both.plot(figsize=(11, 5), title="Strategy vs SP500", color=["steelblue", "red"])
-    ax.axvline(TEST_DATE, color="red", ls="--", label="Train / Test")
-    ax.set(xlabel="Date", ylabel="Cumulative PnL")
-    ax.legend(loc="upper left")
-    ax.figure.tight_layout()
-    ax.figure.savefig(os.path.join(OUT, "strategy.png"), dpi=140)
+
+
+    # =========================
+    # Plot
+    # =========================
+
+    fig, ax1 = plt.subplots(figsize=(11, 5))
+
+    # Strategy
+    ax1.plot(
+        cum.index,
+        cum,
+        label="Strategy PnL",
+        color = "red"
+        
+    )
+
+    ax1.set_xlabel("Date")
+    ax1.set_ylabel("Strategy PnL")
+
+    # S&P 500
+    ax2 = ax1.twinx()
+
+    ax2.plot(
+        benchmark_cum.index,
+        benchmark_cum,
+        label="SP500 PnL",
+    )
+
+    ax2.set_ylabel("SP500 PnL")
+
+ 
+
+   
+
+    # Train / Test boundary
+    ax1.axvline(
+        TEST_DATE,
+        ls="--",
+        label="Train / Test",
+    )
+
+    ax1.legend(loc="upper left")
+    ax2.legend(loc="upper right")
+
+    fig.suptitle("Strategy vs SP500")
+
+    fig.tight_layout()
+
+    fig.savefig(
+        os.path.join(OUT, "strategy.png"),
+        dpi=140,
+    )
+
     plt.close()
+
+
+    # =========================
+    # Report
+    # =========================
 
     report = f"""# Strategy report
 
@@ -142,10 +246,10 @@ benchmark uses the same timing and additive $1-per-day PnL convention.
 
 ## Metrics
 
-| set | Strategy PnL | S&P 500 PnL |
-|-----|--------------|-------------|
-| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} |
-| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} |
+| set | Strategy PnL | S&P 500 PnL | Maximum Drawdown |
+|-----|--------------|-------------|------------------|
+| train | {results.loc['train', 'PnL']:.4f} | {results.loc['train', 'SP500PnL']:.4f} | {results.loc['train', 'MaxDrawdown']:.4f} |
+| test | {results.loc['test', 'PnL']:.4f} | {results.loc['test', 'SP500PnL']:.4f} | {results.loc['test', 'MaxDrawdown']:.4f} |
 
 ## Trust assessment
 This result is encouraging but is not sufficient to trust the strategy with
@@ -153,7 +257,16 @@ real capital. The test set is short, the constituent dataset can contain
 survivorship bias, and the backtest omits transaction costs and slippage. A
 longer point-in-time universe and a cost-aware walk-forward test are required.
 """
-    with open(os.path.join(OUT, "report.md"), "w", encoding="utf-8") as output:
+
+    with open(
+        os.path.join(OUT, "report.md"),
+        "w",
+        encoding="utf-8",
+    ) as output:
         output.write(report)
+
     print(results)
-    print("saved strategy.png, results.csv, report.md")
+
+    print(
+        "saved strategy.png, results.csv, report.md"
+    )
