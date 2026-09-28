@@ -166,8 +166,7 @@ if __name__ == "__main__":
         cum.index,
         cum,
         label="Strategy PnL",
-        color = "red"
-        
+        color="red"
     )
 
     ax1.set_xlabel("Date")
@@ -184,15 +183,23 @@ if __name__ == "__main__":
 
     ax2.set_ylabel("SP500 PnL")
 
- 
+    # Same Y scale
+    limit = max(
+        abs(cum.min()),
+        abs(cum.max()),
+        abs(benchmark_cum.min()),
+        abs(benchmark_cum.max()),
+    )
 
-   
+    ax1.set_ylim(-limit, limit)
+    ax2.set_ylim(-limit, limit)
 
     # Train / Test boundary
     ax1.axvline(
         TEST_DATE,
         ls="--",
         label="Train / Test",
+        color="black"
     )
 
     ax1.legend(loc="upper left")
